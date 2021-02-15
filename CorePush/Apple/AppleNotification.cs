@@ -16,13 +16,15 @@ namespace CorePush.Apple
 
             [JsonProperty("body")]
             public string Body { get; set; }
-
         }
 
         public class ApsPayload
         {
             [JsonProperty("alert")]
             public AlertPayload Alert { get; set; }
+
+            [JsonProperty("sound")]
+            public string Sound { get; set; }
         }
 
         [JsonProperty("aps")]
