@@ -1,16 +1,11 @@
 ﻿using CorePush.Interfaces;
 using CorePush.Utils;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Dynamic;
 using System.Net;
 using System.Net.Http;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace CorePush.Apple

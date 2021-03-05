@@ -73,7 +73,10 @@ namespace CorePush.Apple
 
         public void ClearJwtToken(ApnSettings settings)
         {
-            throw new NotImplementedException();
+            var matching = GetJwtToken(settings);
+            if (matching != null) {
+                tokens.TryRemove(matching, out _);
+            }
         }
     }
 }
