@@ -2,6 +2,7 @@
 using CorePush.Utils;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -67,55 +68,47 @@ namespace CorePush.Apple
 
             // The 'data' member needs to be flattened as per
             // https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CreatingtheNotificationPayload.html
+            //
+            // Example 
+            //
+            // {
+            //  "aps": {
+            //    "alert": {
+            //      "title": "Example Title",
+            //      "subtitle": "Example SubTitle",
+            //      "body": "Example Message"
+            //    },
+            //    "sound" : "default"
+            //  },
+            //  "key1": "value1", <<-- NOTE, peer to APS not nested below
+            //  "key2": "value2",
+            //  "key3": "333",
+            //  "key4": null
+            // }
 
-            var dataNode = notification.Data;
-
-            if (dataNode != null)
+            // Get rid of empty lists to simplify the last stage
+            if (notification.Data != null && notification.Data.Count == 0)
             {
-                // Get rid of the child Data node
                 notification.Data = null;
             }
 
-            var json = JsonHelper.Serialize(notification);
+            // Convert to JSON string
+            var jsonString = JsonHelper.Serialize(notification); // removes nulls
 
-            if (dataNode != null)
+            if (notification.Data != null)
             {
-                // HACK - need to improve this
-                // Strip off the {{ and }} wrappers around the serialised data
-                // object then inject it as a peer to the main payload,
-                //
-                // e.g.
-                //
-                // {
-                //  "aps": {
-                //    "alert": {
-                //      "title": "Test Title",
-                //      "subtitle": "Test SubTitle",
-                //      "body": "Test Body"
-                //    }
-                //  },
-                //  "key1": "value1", <<-- NOTE, peer to APS not nested below
-                //  "key2": "value2",
-                //  "key3": "333",
-                //  "key4": null
-                // }
-                //
-                // If we didn't do this then the JSON properties would nest
-                // all the data payload below a "Data" node which would be wrong
-                string dataJson = JsonHelper.Serialize(dataNode);
-                dataJson = dataJson.Substring(1);
-                dataJson = "," + dataJson.Substring(0, dataJson.Length - 1);
+                // Now we want to relocate the data nodes
+                var jsonObject = JObject.Parse(jsonString);
+                var data = jsonObject["data"];
+                jsonObject.Add(data.Children());
 
-                // Now it doesn't have the wrapper we can inject it into
-                // the main payload
-                StringBuilder sb = new StringBuilder();
-                sb.Append(json);
-                sb.Insert(json.Length-1, dataJson);
+                // Remove the original data node because we moved
+                // the data child elements to be a peer to aps
+                jsonObject.Remove("data");
 
-                // Replace the previous JSON with the data injected as a peer
-                json = sb.ToString();
+                jsonString = jsonObject.ToString(Formatting.None);                
             }
-            
+
             int tryCount = 0;
             int statusCode = -1;
             bool succeed = false;
@@ -127,7 +120,7 @@ namespace CorePush.Apple
                 var request = new HttpRequestMessage(HttpMethod.Post, new Uri(servers[settings.ServerType] + path))
                 {
                     Version = new Version(2, 0),
-                    Content = new StringContent(json)
+                    Content = new StringContent(jsonString)
                 };
                 request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("bearer", jwtProvider.GetJwtToken(settings));
                 request.Headers.TryAddWithoutValidation(":method", "POST");
